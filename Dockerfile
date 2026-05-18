@@ -1,39 +1,18 @@
-# Stage 1: Get FFmpeg binaries from Alpine
-FROM alpine:3.23 AS ffmpeg-builder
-RUN apk add --no-cache ffmpeg
+# Stage 1: Get static FFmpeg binaries (no shared library dependencies)
+# mwader/static-ffmpeg provides fully static builds of ffmpeg/ffprobe
+FROM mwader/static-ffmpeg:latest AS ffmpeg-source
 
-# Stage 2: Extend n8n with FFmpeg
-# n8n uses a minimal base image with no package manager,
-# so we copy the ffmpeg binary and its shared libs from Alpine
+# Stage 2: Extend n8n with static FFmpeg binaries
+# n8n uses a minimal base image (n8nio/base DHI) with no package manager.
+# Static FFmpeg binaries work without any shared libraries.
 FROM n8nio/n8n:latest
 
 USER root
 
-# Copy ffmpeg binary
-COPY --from=ffmpeg-builder /usr/bin/ffmpeg /usr/bin/ffmpeg
-COPY --from=ffmpeg-builder /usr/bin/ffprobe /usr/bin/ffprobe
+# Copy static ffmpeg and ffprobe binaries
+COPY --from=ffmpeg-source /ffmpeg /usr/bin/ffmpeg
+COPY --from=ffmpeg-source /ffprobe /usr/bin/ffprobe
 
-# Copy shared libraries that ffmpeg depends on
-COPY --from=ffmpeg-builder /usr/lib/libavcodec* \
-    /usr/lib/libavdevice* \
-    /usr/lib/libavfilter* \
-    /usr/lib/libavformat* \
-    /usr/lib/libavutil* \
-    /usr/lib/libswresample* \
-    /usr/lib/libswscale* \
-    /usr/lib/
-
-# Copy additional codec/format libraries
-COPY --from=ffmpeg-builder /usr/lib/libx264* \
-    /usr/lib/libmp3lame* \
-    /usr/lib/libopus* \
-    /usr/lib/libvorbis* \
-    /usr/lib/libogg* \
-    /usr/lib/libvpx* \
-    /usr/lib/libtheoraenc* \
-    /usr/lib/libtheoradec* \
-    /usr/lib/libspeex* \
-    /usr/lib/libfreetype* \
-    /usr/lib/
+RUN chmod +x /usr/bin/ffmpeg /usr/bin/ffprobe
 
 USER node
